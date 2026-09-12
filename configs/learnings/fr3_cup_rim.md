@@ -44,6 +44,19 @@ If pitching makes the cup move toward the image edge without bringing its rim
 into the working region, reassess translation and tilt together instead of
 continuing to pitch in place. Do not chase a “perfectly vertical” attitude.
 
+Do not require final grasp/contact evidence before every coarse approach
+step. If the selected rim is still distant and the observed path has clearance,
+continue a bounded approach and reobserve; not yet straddling the wall is an
+expected intermediate state. Partial cup-opening occlusion by the right finger
+also occurs in the successful demo, so a completely visible opening is not a
+prerequisite. Occlusion alone proves neither collision nor a valid grasp.
+When occlusion prevents judging the next increment, actively seek a useful view
+with a small supported lateral/attitude adjustment, using the last clear view
+and measured motion as context. Do not repeat only x/z moves indefinitely when
+the missing information is hidden behind one finger. If no supported view
+adjustment is available, report the missing clearance/distance information;
+do not guess contact depth or close blindly.
+
 The failed run adhoc_bc31eeb3 illustrates this mistake: after a small up/forward
 move, the agent repeatedly held XYZ almost fixed and requested ry=0.18, 0.38,
 0.60, 0.85, then 1.10 rad. The cup stayed small and moved toward the image's
