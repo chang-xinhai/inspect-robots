@@ -1,180 +1,89 @@
-# Cup-to-plate experience: vertical rim pinch (竖着夹杯沿)
+# Cup-rim demonstration: approach while adjusting attitude
 
-Scope: apply these notes when the current task is placing the upright cup in
-its plate with this two-finger wrist-camera rig. The supervising operator
-explicitly prefers approaching from above and pinching a small segment of the
-cup's upper wall/rim. Current observations and operator feedback take priority.
+Use the attached 18-frame HISTORICAL storyboard as a visual example. It is not
+the current scene. Pinch one segment of the upper cup wall, carry the upright
+cup into its plate, release, and withdraw.
 
-The operator clarified the demonstrated approach: first move up and forward,
-then reorient to look down at the cup, then approach the rim from above.
-Do not replace that sequence with an immediate descent at the initial oblique
-attitude or horizontal motion close to the table. The attached historical
-18-frame storyboard is visual evidence of the sequence; inspect its EARLY
-frames as well as the grasp frames. The source world's axes are not the
-robot base axes, so the operator's qualitative directions are not copied XYZ
-commands. The current tool DOES support reorientation through move_to targets
-rx,ry,rz. Establish clearance, then use small observed rotations to prepare a
-top-down rim approach. Do not give_up solely because the initial view is
-oblique or because older attempts had no rotation tool. If the current view
-or an execution fault prevents a supported move, explain that actual obstacle.
+## A coordinated approach, not three isolated stages
 
-## Grasp geometry
+The operator's “up and forward, look down, then grasp from above” describes
+the overall path. It does NOT prescribe a separate vertical takeoff followed
+by stationary pitching until the wrist is perfectly vertical. “竖着夹杯沿”
+specifies a grasp at the upper rim with a suitable approach; it does not
+require a 90-degree wrist attitude or a perfectly downward-facing camera.
 
-Choose a reachable, unobstructed segment of the cup rim. Position the two
-finger contact surfaces on opposite sides of that SAME thin wall segment:
-one finger inside the cup opening, the other outside the cup. The local rim
-segment belongs in the closing gap. The whole cup opening may remain offset
-from the gripper center; that is compatible with this grasp. Do not treat
-centering the whole cup between the fingers as the goal, span its full outer
-diameter, descend along the full cup body, or seek the handle by default.
+The demo moves toward the cup while the viewing/grasp attitude changes.
+Only use as much clearance as the actual finger/wrist geometry requires.
+When the observed geometry supports it, coordinate modest XYZ translation
+and attitude adjustment in the same move_to, then observe the result.
+Do not postpone all approach translation until an imagined final tilt angle
+has been reached. A short isolated tilt can establish direction, but repeated
+stationary tilts are not the demonstrated approach.
 
-"Vertical" describes approaching the upper rim from above while the cup stays
-upright. It does not mean rotating the image or changing the closing axis.
-The current FR3 embodiment exposes translations AND rotation. rx,ry,rz are
-one rotation vector in radians about the fixed policy/base axes, relative to
-the trial's initial attitude: R_target=Exp([rx,ry,rz])@R_start. They are not
-Euler roll/pitch/yaw or per-step increments. The vector norm is the angle;
-its direction is the axis. Zeros restore the starting attitude, not top-down.
-Use tcp_quat (absolute xyzw) and observed image changes to reason about tilt.
-Prepare the grasp attitude before descending close to the rim; the camera,
-wrist and long fingers sweep space even when the TCP position is held fixed.
-Once grasped, preserve an upright cup while transporting it.
+Reinspection of the early demo at 0.5-second intervals shows:
 
-## Episode 0: what the demonstrated trajectory actually does
+| Source interval | Evidence | Lesson for the live approach |
+| --- | --- | --- |
+| 0.0–0.5 s | Small initial motion; the scene remains oblique. Source TCP net motion is about 2.1 cm and attitude change about 4 degrees. | A modest start, not a large clearance ascent. These values are historical, not commanded increments. |
+| 0.5–1.0 s | Approach continues with reorientation; at 1.0 s the attitude differs from its start by about 11 degrees. | Forward approach is already under way while the view is still oblique. |
+| 1.0–2.2 s | Continued translation AND progressive reorientation. The cup opening becomes substantially larger and stays near the right finger. Attitude change is about 25 degrees at 1.5 s and 42 degrees at 2.2 s. | Establish a close rim-grasp configuration through coordinated approach. Do not just rotate the distant tabletop into a nicer view. |
+| 2.2–2.4 s | Right image finger inside the cup opening, left outside the same left-side wall; only a small local adjustment remains. | Stop gross positioning once the fingers can straddle this wall. The cup center correctly remains offset to the right. |
 
-This is a historical demonstration, not the current observation. Times identify
-its frames; they are not deadlines for the robot. Phase boundaries below were
-annotated by visual inspection, not measured contact sensors. TCP motion and
-apertures come from all 90 aligned 10 Hz samples, not just the 1 Hz overview.
+Source angles describe progression, not a target to copy or a universal angle
+cap. Source-world coordinates are not FR3 base coordinates. “Forward” in this
+description does not determine a live base-axis sign.
 
-1. **0.0-2.2 s: approach while changing the viewing/grasp attitude.** Initially
-   the scene is oblique: the table and background are visible, the cup is on
-   the right and the plate on the left. By 2.0-2.2 s the table fills the view,
-   the cup opening is much larger, and the right image finger overlaps the
-   opening near its left wall. The cup is still offset to the right; that
-   offset is expected for the demonstrated rim grasp. The measured aperture
-   stays about 75-76 mm. This is a substantial 3D approach with reorientation,
-   not repeated fixed-height retreat to match image rows. Endpoint TCP
-   displacement is 46.9 cm and orientation change is 42.1 degrees in the
-   source recording. These describe the demonstrator's particular starting
-   distance and attitude, NOT a distance or rotation to command on FR3.
-2. **2.2-2.4 s: finish placing the open fingers across one rim segment.**
-   The right image finger is inside the cup opening and the left is outside
-   the same left-side wall segment. This identifies which local wall will be
-   pinched; the cup center is not the grasp center. The recorded TCP endpoint
-   displacement over this interval is only 1.9 cm, with 2.7 degrees of attitude
-   change. The aperture begins decreasing, reaching 68.4 mm at 2.4 s.
-3. **2.4-3.0 s: close with little additional TCP travel.** Measured apertures
-   at 2.4, 2.6, 2.8 and 3.0 s are 68.4, 17.3, 11.3 and 7.9 mm. TCP endpoint
-   displacement is 1.7 cm (sampled path length 2.9 cm) and attitude changes
-   2.4 degrees. The fingers converge around that thin upper wall; the cup
-   stays to the right of the nearly closed fingers. The useful lesson is to
-   stop gross positioning once the rim is straddled, then close locally.
-   Do not continue a long descent or try to center the entire cup first.
-4. **3.0-4.8 s: carry the held cup toward the plate.** The cup maintains its
-   relationship to the closed fingers while the plate moves into position
-   behind/under it in the wrist image. Aperture remains roughly 6-8 mm.
-   There is substantial transport: 32.5 cm endpoint displacement and
-   23.4 degrees attitude change from 3.0 to 4.0 s, then 8.9 cm and 7.2 degrees
-   from 4.0 to 4.8 s. Transfer the stage ordering and attachment check, not
-   these layout-specific distances. A short verification lift before a long
-   carry is an execution adaptation; the sampled demo does not establish a
-   separate stationary verification pause.
-5. **4.8-5.4 s: finish placement and open near the destination.** The plate
-   is around/behind the cup, and the fingers spread apart while the cup
-   remains there. Aperture grows from 6.8 mm at 4.8 s to 12.5 at 5.0,
-   50.6 at 5.2 and 78.4 mm at 5.4 s. TCP endpoint displacement is only
-   2.4 cm during this interval. This contrasts with the larger preceding
-   carry: placement/release is a local action. The images support the
-   placement interpretation but do not directly measure supporting force;
-   establish live support before release.
-6. **5.4-8.9 s: withdraw with the fingers open and inspect the result.** The
-   cup remains upright within the plate as the wrist view pulls back to show
-   the table again. Withdrawal is after release, not the earlier approach
-   behavior. At 6.0 s the opening is about 75.9 mm; at the final frame it is
-   74.9 mm. Use the cup remaining in the plate after the fingers leave as the
-   visual completion condition.
+## Judge progress at the rim, not by how vertical the view looks
 
-The full demo reaches a 55.2-degree orientation difference from its first
-pose. In particular, the large attitude change already occurs BEFORE closure.
-Older FR3 runs fixed the starting attitude and omitted this observed part of
-the approach. That restriction has now been removed. Include orientation
-preparation in the plan and use the available rotation targets; a similar
-initial-looking image alone does not determine the required rotation sign or
-angle. The demo's 42.1/55.2-degree figures are evidence of a meaningful change,
-not angles to copy blindly in a particular live base axis.
+Useful progress means the chosen rim becomes reachable between the actual
+contact surfaces, with one finger inside and one outside the SAME thin wall.
+Use the changing rim/finger relationship, apparent scale, and measured TCP
+motion together. Image size or pixel alignment alone does not establish depth.
+Seeing more tabletop, or making the cup opening look rounder, is insufficient.
+If pitching makes the cup move toward the image edge without bringing its rim
+into the working region, reassess translation and tilt together instead of
+continuing to pitch in place. Do not chase a “perfectly vertical” attitude.
 
-Sampling lesson: 1 Hz is useful for stage order, but would jump from the open
-hand at 2.0 s to nearly closed at 3.0 s, hiding how it straddles and closes.
-Use the 5 Hz contact/release descriptions above for those transitions. Neither
-sampling frequency is a requested robot-control or LLM-call frequency.
+The failed run adhoc_bc31eeb3 illustrates this mistake: after a small up/forward
+move, the agent repeatedly held XYZ almost fixed and requested ry=0.18, 0.38,
+0.60, 0.85, then 1.10 rad. The cup stayed small and moved toward the image's
+upper edge. The final measured attitude change was about 60 degrees; no grasp
+approach occurred and execution eventually timed out. Do not repeat this
+stationary-tilt ladder. An earlier failure similarly kept retreating at fixed
+height to align image rows. Both optimized the image instead of approaching
+the selected rim in space.
 
-## Apply the demonstration to the live task
+## Grasp, carry, release
 
-1. Identify the actual finger tips/contact surfaces, cup opening, chosen rim
-   segment, and destination plate. Move above the chosen rim with the gripper
-   open and sufficient clearance. Use small observed corrections to relate
-   image motion to base-frame motion.
-2. Align the gap across that rim segment. Lower only enough to place one tip
-   inside the opening and the other outside its wall. Near contact, use short
-   vertical increments and inspect again. You do not need to descend to the
-   middle or bottom of the cup. Alignment here means a feasible approach to
-   straddle the wall in 3D, not making the distant rim and nearby finger tips
-   share a pixel row before any descent.
-3. Close after the two fingers visibly straddle the wall without pushing it.
-   In this interface gripper_width=0 requests closing; 0.08 requests opening.
-   Retain the closing command while carrying. Contact may leave a nonzero
-   measured aperture; a width value alone does not prove a successful grasp.
-4. Make a short upward verification lift and inspect whether the cup travels
-   with the fingers while staying upright. If it stays on the table or slips,
-   stop transport and reassess rather than assuming it was picked up.
-5. Once attachment and table clearance are visible, carry the cup above the
-   plate. Lower until the cup base is supported in the plate, open the fingers,
-   lift clear, and inspect the final placement. Do not release above the plate
-   merely because its outline appears behind the cup.
+- At 2.4–3.0 s, the fingers close locally on the upper wall. Aperture changes
+  from about 68 to 8 mm while TCP endpoint displacement is about 1.7 cm.
+  Do not span the whole cup diameter, descend along the full body, or try to
+  center the cup before closing.
+- At 3.0–4.8 s, the cup stays with the closed fingers while the plate comes
+  underneath. Verify attachment with a short lift before a longer carry;
+  the demo does not establish a separate stationary verification pause.
+- At 4.8–5.4 s, placement and opening are local motions near the plate.
+  Establish live support, then open. Images do not directly measure force.
+- After 5.4 s the open fingers withdraw; the cup remains upright in the plate.
+  Large withdrawal belongs AFTER release, not before grasping.
 
-## Avoid the observed fixed-height retreat loop
+## Interface and evidence
 
-In the recorded attempt adhoc_a3d685d9, the agent repeatedly reduced base x
-at almost unchanged height because the cup rim moved upward in the wrist
-image. It never explicitly commanded a lower z. The measured x moved from
-0.4472 to 0.3655 m after its forward probe, without reaching a grasp; the
-native controller subsequently reported joint_position_limits_violation.
-These are observations from a failed attempt, not waypoints to repeat.
+move_to controls absolute XYZ in metres and one trial-relative rotation vector
+rx,ry,rz in radians: R_target=Exp([rx,ry,rz])@R_start. Vector axes are fixed in
+the policy/base frame; this is not Euler angles or per-step rotation. Zero
+rotation restores the starting attitude, not a top-down attitude. Omitted
+dimensions keep their measured values. Rotation holds the TCP target but
+sweeps the fingers, wrist and camera; account for clearance throughout.
+gripper_width=0 closes and 0.08 opens. Keep the closing command while carrying;
+nonzero measured aperture alone does not prove attachment.
 
-The wrist camera moves with the fingers. A rim below the tips in the image
-does not by itself imply that the robot should retreat until their image
-rows coincide. Image-row improvement is not evidence of decreasing distance
-to the rim. Account for height, depth and perspective, and explain what each
-probe establishes about an actual approach. After two alignment probes that
-still do not establish a supported approach, reassess and ask for operator
-guidance via give_up rather than repeating another same-direction probe.
-This is a planning heuristic, not a hardware safety boundary.
-
-When clearance and the prepared attitude support approaching the upper rim,
-include a deliberate, small downward approach and inspect the new view;
-do not postpone descent indefinitely to optimize a distant pixel alignment.
-Do not turn this into an unconditional +x/-z rule: the current interface has
-no calibrated camera-to-base transform or metric rim height. If the view
-cannot support the approach, give_up with the missing information. A fixed
-starting attitude is not necessarily a suitable rim-grasp attitude, and
-translations cannot correct an unsuitable wrist orientation.
-
-## Evidence and limits
-
-These notes combine the operator's instruction with offline visual review of
-DepthUMI overfit episode_000000/vive_tracker.hdf5, pick_cup, from the
-2026_09_08-03_00_00-pick_cup-8runs processing batch. The aligned sample span is
-8.9 s. Images at approximately 2.4–3.0 s show the rim pinch; 3–5 s show carrying
-toward the plate; 5.0–5.4 s show opening; later frames show the cup in the plate
-and the open gripper withdrawing. This supports a grasp strategy, not an
-exact timing schedule or a verified success guarantee for the current robot.
-
-The demonstration's measured opening changes from about 75 mm before grasp to
-6–8 mm while holding, then back to about 78 mm on release. Those are historical
-sensor readings, not target widths or the cup wall's measured thickness.
-Do not copy those widths, source world coordinates, timestamps, or rotations
-as commands. The demonstration includes orientation changes; the present
-6D embodiment can adjust attitude, but still needs live geometric feedback
-rather than replaying the source world coordinates. Keep the live camera as
-the source of alignment and progress, and stop on an execution fault.
+Evidence: episode_000000/vive_tracker.hdf5 from the
+2026_09_08-03_00_00-pick_cup-8runs batch; 90 aligned 10 Hz states over 8.9 s.
+The 1 Hz overview is supplemented by contact/release frames at 5 Hz and an
+offline 0.5-second early-approach review. Phase descriptions combine images,
+recorded TCP/aperture measurements and operator guidance. No metric camera
+extrinsics or source-to-live object registration are available. Use supported
+live corrections; stop on an execution fault or if the view cannot support
+the next move. Historical distances, widths, rotations and times are not an
+executable trajectory or a task-success guarantee.
