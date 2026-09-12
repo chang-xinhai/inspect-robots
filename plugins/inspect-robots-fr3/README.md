@@ -86,3 +86,16 @@ PYTHON_BIN=~/miniconda3/envs/depthumi/bin/python bash scripts/fr3/setup.sh ~/pro
 `logs/` 保存原生 eval JSON、frames、transcripts 和 wire capture。Codex 的精确 prompt/schema/images/命令/输出另存于 `logs/codex/<run>/<trial>/`。硬件回执、相机日志和当次 site 设置在 `logs/fr3/<timestamp-id>/`，通过 observation/step info 关联。`execution.jsonl` 分别记录 started/completed，未完成动作不会伪记为完成。预检在 `logs/preflight/`。
 
 Codex 使用官方 `codex exec` 和 ChatGPT 登录，保留原生会话历史并把工具调用转为结构化输出；禁用 shell/apps/web/multi-agent，机械臂工具只由 Python 原生 agent 执行。CLI 的取消/超时会终止其子进程组。日志可能包含实验图像和任务文本，未纳入 Git。
+
+## 杯沿抓取经验
+
+`configs/fr3.ini` 默认通过原生 `prior_learnings` 加载
+`configs/learnings/fr3_cup_rim.md`。它结合操作者“竖着夹”的要求和 overfit
+示范 episode0 的离线图像检查，说明从上方接近杯沿、一指在杯内一指在杯外夹住
+同一段杯壁、提起验证、移到盘中并支撑后释放的流程。模型读取的是文字；当前没有
+HDF5/视频示范输入，也没有把这些图像当作当前 observation。
+
+episode0 对齐数据跨度 8.9 秒。1 Hz 适合约十张概览图，但闭爪（约 2.4–2.8 秒）
+和开爪（约 5.0–5.4 秒）需要补看 5 Hz 关键帧。示范存在姿态变化，当前固定腕部
+朝向只使用抓取思路，不复现源轨迹或源坐标。纯基线对照可用
+`-P prior_learnings=none` 禁用经验；路径和内容哈希会由上游记录在 eval 配置中。
