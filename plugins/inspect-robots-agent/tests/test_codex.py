@@ -1,9 +1,12 @@
 """Codex wire preserves tool contracts without API authentication or robot tools."""
 
 import base64
+import hashlib
+import io
 import json
 
 import pytest
+from PIL import Image
 
 from inspect_robots.errors import ConfigError
 from inspect_robots_agent import LLMAgentPolicy
@@ -94,3 +97,63 @@ def test_invalid_tool_fails_closed(tmp_path, monkeypatch):
     client = CodexClient(Provider("codex://chatgpt", "", "gpt-5.5"))
     with pytest.raises(ValueError, match="unknown tool"):
         client.complete([], [{"type": "function", "function": {"name": "done"}}])
+
+
+def test_demo_is_pinned_separate_from_live_images_and_snapshotted(tmp_path, monkeypatch):
+    fake_codex(tmp_path, monkeypatch, {"content": None, "tool_calls": []})
+    source = tmp_path / "demo.jpg"
+    Image.new("RGB", (12, 8), "red").save(source)
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    policy = LLMAgentPolicy(wire="codex", prior_demo_image=str(source), image_horizon=1)
+    assert policy.config.prior_demo_image == str(source.resolve())
+    assert policy.config.prior_demo_image_sha256 == digest
+    assert policy.config.image_horizon == 1
+    client = policy._client
+    assert isinstance(client, CodexClient)
+    client.set_trace_dir(tmp_path / "traces")
+    source.unlink()  # A trial's pinned image must not depend on later file changes.
+    for color in ("blue", "green"):
+        png = io.BytesIO()
+        Image.new("RGB", (8, 8), color).save(png, format="PNG")
+        messages = [
+            {"role": "system", "content": "native system"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Current observation"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/png;base64,"
+                            + base64.b64encode(png.getvalue()).decode()
+                        },
+                    },
+                ],
+            },
+        ]
+        before = json.dumps(messages)
+        client.complete(messages, [{"type": "function", "function": {"name": "give_up"}}])
+        assert json.dumps(messages) == before
+    traces = list((tmp_path / "traces").iterdir())
+    assert len(traces) == 2
+    for trace in traces:
+        prompt = (trace / "prompt.txt").read_text()
+        assert prompt.index("HISTORICAL DEMONSTRATION") < prompt.index("Current observation")
+        assert digest in prompt
+        assert "attached image 1" in prompt and "attached image 2" in prompt
+        with Image.open(trace / "image_0.png") as demo:
+            assert demo.size == (12, 8)
+        with Image.open(trace / "image_1.png") as live:
+            assert live.size == (8, 8)
+        command = json.loads((trace / "command.json").read_text())
+        assert command.count("--image") == 2
+
+
+def test_missing_demo_fails_before_cli_start(tmp_path):
+    with pytest.raises(ConfigError, match="Cannot load prior_demo_image"):
+        LLMAgentPolicy(wire="codex", prior_demo_image=str(tmp_path / "missing.jpg"))
+
+
+def test_demo_rejects_unsupported_wire():
+    with pytest.raises(ConfigError, match="requires wire=codex"):
+        LLMAgentPolicy(wire="responses", prior_demo_image="demo.jpg")

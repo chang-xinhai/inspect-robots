@@ -290,6 +290,9 @@ class AgentPolicyConfig(PolicyConfig):
     prior_learnings: str | None = None
     #: SHA-256 hexdigest of the injected prior-learnings text.
     prior_learnings_sha256: str | None = None
+    #: Codex-only pinned historical image, separate from live image_horizon.
+    prior_demo_image: str | None = None
+    prior_demo_image_sha256: str | None = None
     #: Best-effort module and qualified-name identity of the motion pre-check.
     pre_check: str | None = None
 
@@ -339,6 +342,7 @@ class LLMAgentPolicy(PolicyBase):
         depth: str = "render",
         image_horizon: int | _Unset | None = _UNSET,
         prior_learnings: str | None = None,
+        prior_demo_image: str | None = None,
         transport: httpx.BaseTransport | None = None,
         env: dict[str, str] | None = None,
         pre_check: PreCheck | None = None,
@@ -419,6 +423,8 @@ class LLMAgentPolicy(PolicyBase):
             raise ConfigError("max_llm_calls must be >= 1")
         environ = dict(os.environ) if env is None else env
         requested_model = model or environ.get(ENV_MODEL)
+        if prior_demo_image is not None and wire != "codex":
+            raise ConfigError("prior_demo_image currently requires wire=codex")
         if wire == "codex":
             if base_url or api_key_env or transport is not None:
                 raise ConfigError("wire=codex uses ChatGPT login; omit API endpoint/key/transport")
@@ -712,7 +718,12 @@ class LLMAgentPolicy(PolicyBase):
             | CodexClient
         )
         if wire == "codex":
-            self._client = CodexClient(provider, timeout_s=codex_timeout_s, capture=self._capture)
+            self._client = CodexClient(
+                provider,
+                timeout_s=codex_timeout_s,
+                capture=self._capture,
+                prior_demo_image=prior_demo_image,
+            )
         elif wire == "messages":
             assert resolved_max_output_tokens is not None
             self._client = AnthropicClient(
@@ -763,6 +774,12 @@ class LLMAgentPolicy(PolicyBase):
             image_horizon=resolved_image_horizon,
             prior_learnings=prior_learnings_path,
             prior_learnings_sha256=prior_learnings_sha256,
+            prior_demo_image=(
+                self._client.demo_image_path if isinstance(self._client, CodexClient) else None
+            ),
+            prior_demo_image_sha256=(
+                self._client.demo_image_sha256 if isinstance(self._client, CodexClient) else None
+            ),
             pre_check=pre_check_identity,
         )
         # Placeholder until bind(); eval() always binds before compat/rollout.
@@ -818,6 +835,14 @@ class LLMAgentPolicy(PolicyBase):
                 + "\n\nNotes from a previous attempt at tasks like this one. They may "
                 + "be wrong or stale; the current observation always wins:\n"
                 + self._prior_learnings_text
+            )
+        if isinstance(self._client, CodexClient) and self._client.demo_image_path is not None:
+            formatted += (
+                "\n\nA HISTORICAL demonstration storyboard is attached separately by the "
+                "Codex transport on each request, before the live observation history. "
+                "Use it as a visual example, never as the current scene. Its source SHA256 is "
+                + str(self._client.demo_image_sha256)
+                + "."
             )
         self._messages = [
             {

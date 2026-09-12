@@ -562,7 +562,11 @@ def build_toolset(
             "tell absolute targets from displacements"
         )
     mode = semantics.control_mode
-    if mode in _POSE_MODES and semantics.rotation_repr not in _SAFE_ROT:
+    if (
+        mode in _POSE_MODES
+        and semantics.rotation_repr not in _SAFE_ROT
+        and semantics.rotation_reference != "trial_start"
+    ):
         raise ToolsetError(
             f"rotation_repr {semantics.rotation_repr!r} cannot be driven per-dimension; "
             f"only {sorted(_SAFE_ROT)} are supported"

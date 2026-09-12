@@ -67,8 +67,18 @@ class ActionSemantics:
     frame: Frame = "base"
     dim_labels: tuple[str, ...] | None = None
     max_step: tuple[float | None, ...] | None = None
+    #: For axis_angle absolute poses only: a bounded, nonwrapping chart around
+    #: a fixed trial-start attitude. Exp(rotvec) left-multiplies that attitude;
+    #: vector axes are expressed in ``frame``. Box validates the chart bounds.
+    rotation_reference: Literal["frame", "trial_start"] = "frame"
 
     def __post_init__(self) -> None:
+        if self.rotation_reference not in {"frame", "trial_start"}:
+            raise ValueError("invalid rotation_reference")
+        if self.rotation_reference == "trial_start" and (
+            self.control_mode != "eef_abs_pose" or self.rotation_repr != "axis_angle"
+        ):
+            raise ValueError("trial_start rotation_reference requires eef_abs_pose + axis_angle")
         if self.max_step is None:
             return
         for entry in self.max_step:
@@ -107,6 +117,16 @@ class Box:
                 f"ActionSemantics.dim_labels has {len(labels)} entries but the box "
                 f"has {self.dim} dimensions"
             )
+        if self.semantics is not None and self.semantics.rotation_reference == "trial_start":
+            if labels is None or any(labels.count(label) != 1 for label in ("rx", "ry", "rz")):
+                raise ValueError("trial_start axis_angle requires unique rx, ry, rz labels")
+            if self.low is None or self.high is None:
+                raise ValueError("trial_start axis_angle requires finite chart bounds")
+            indices = [labels.index(label) for label in ("rx", "ry", "rz")]
+            low, high = self.low.reshape(-1)[indices], self.high.reshape(-1)[indices]
+            radius = np.linalg.norm(np.maximum(np.abs(low), np.abs(high)))
+            if not np.isfinite(radius) or radius >= math.pi or np.any(low > 0) or np.any(high < 0):
+                raise ValueError("trial_start rotation chart must include zero and stay inside pi")
         max_step = self.semantics.max_step if self.semantics is not None else None
         if max_step is not None:
             if len(max_step) != self.dim:

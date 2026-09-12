@@ -98,6 +98,15 @@ def _check_action_spaces(policy_box: Box, emb_box: Box, issues: list[CompatIssue
                 f"policy rotation_repr {ps.rotation_repr!r} != embodiment {es.rotation_repr!r}",
             )
         )
+    if ps.rotation_reference != es.rotation_reference:
+        issues.append(
+            CompatIssue(
+                "error",
+                "rotation_reference",
+                f"policy rotation_reference {ps.rotation_reference!r} != "
+                f"embodiment {es.rotation_reference!r}",
+            )
+        )
     if ps.gripper != es.gripper:
         issues.append(
             CompatIssue(

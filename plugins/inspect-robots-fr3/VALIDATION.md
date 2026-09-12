@@ -1,5 +1,37 @@
 # Local migration validation
 
+## Full TCP and visual demonstration extension
+
+2026-09-13: default FR3 action is now seven-dimensional
+`[x,y,z,rx,ry,rz,gripper_width]`, with a bounded trial-start rotation-vector
+chart and `R_target=Exp(rotvec)@R_start` in policy/base axes. The existing
+native move tool and delta limiter accept this explicitly declared chart;
+other previously unsupported absolute rotation representations still fail.
+
+- Core: 1725 passed, 6 skipped (optional Rerun SDK absent).
+- Agent: 529 passed, including persistent historical-image attachment tests.
+- FR3: 12 passed. Coverage includes nonidentity starting attitude, base-axis
+  rotation composition, mixed rotations and return to the reference, translation
+  after rotation, grip preservation, excessive rotation/drift rejection, measured
+  rotational settling after queue acknowledgment, and recorded joint state.
+- Ruff and targeted mypy checks passed.
+- Actual Astra medium + native tools + mock RPC: one seven-dimensional rotation
+  target generated, five waypoints executed in memory, measured mock ry=0.12.
+  Evidence: `logs/validation/fr3-full-tcp/result.json` and transcript/CLI capture.
+- Current DepthUMI `ServoConfig` / `CartesianTrajectory` tested offline with this
+  machine's transforms: TCP→EE→TCP roundtrip verified; a 0.12-rad rotation has a
+  0.06-rad midpoint while TCP position stays fixed. EE position changes as required
+  by the tool offset. Evidence: `logs/validation/fr3-full-tcp/transport-math.json`.
+- Historical 18-frame demo is attached separately from rolling live observations;
+  source path/hash are logged. Prior notes now describe the available rotation
+  interface instead of the obsolete fixed-attitude restriction.
+- No physical robot connection or motion was used for these checks. Previously
+  observed real joint-limit faults are not claimed fixed. Cartesian interpolation
+  is not an IK/collision feasibility planner. Rotation requires clearance for the
+  swept wrist/camera/fingers even at a stationary TCP target.
+
+## Initial migration checks (before the full TCP extension)
+
 2026-09-13 (Asia/Shanghai), Codex CLI 0.154.0, Python 3.12.12.
 Upstream: `7e4d1b7aee1c0d3cfc3a05a7492b9d12cda666f9`.
 Runtime installation follows committed `uv.lock` for core + agent + FR3.

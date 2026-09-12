@@ -174,7 +174,11 @@ class DeltaLimitApprover:
                 "DeltaLimitApprover: action space declares no semantics; the "
                 "limiter cannot tell absolute targets from displacements"
             )
-        if sem.control_mode in _ABSOLUTE_POSE_MODES and sem.rotation_repr not in _LIMITABLE_ROT:
+        if (
+            sem.control_mode in _ABSOLUTE_POSE_MODES
+            and sem.rotation_repr not in _LIMITABLE_ROT
+            and sem.rotation_reference != "trial_start"
+        ):
             raise ValueError(
                 f"DeltaLimitApprover: cannot clamp absolute rotation_repr "
                 f"{sem.rotation_repr!r} per dimension; only {sorted(_LIMITABLE_ROT)} "

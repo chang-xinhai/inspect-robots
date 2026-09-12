@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
+import io
 import json
 import os
 import shutil
@@ -14,6 +16,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+from PIL import Image
 
 from inspect_robots.errors import ConfigError
 
@@ -44,10 +48,36 @@ class CodexClient:
     """
 
     def __init__(
-        self, provider: Provider, *, timeout_s: float = 120, capture: WireCapture | None = None
+        self,
+        provider: Provider,
+        *,
+        timeout_s: float = 120,
+        capture: WireCapture | None = None,
+        prior_demo_image: str | None = None,
     ):
         self._provider, self._capture = provider, capture
         self.timeout_s = timeout_s
+        self.demo_image_path: str | None = None
+        self.demo_image_sha256: str | None = None
+        self._demo_image_url: str | None = None
+        if prior_demo_image is not None:
+            if not isinstance(prior_demo_image, str) or not prior_demo_image.strip():
+                raise ConfigError("prior_demo_image must be a nonempty image path or None")
+            try:
+                path = Path(prior_demo_image).resolve()
+                source = path.read_bytes()
+                with Image.open(io.BytesIO(source)) as decoded:
+                    png = io.BytesIO()
+                    decoded.convert("RGB").save(png, format="PNG")
+            except (OSError, ValueError) as exc:
+                raise ConfigError(
+                    f"Cannot load prior_demo_image {prior_demo_image!r}: {exc}"
+                ) from exc
+            self.demo_image_path = str(path)
+            self.demo_image_sha256 = hashlib.sha256(source).hexdigest()
+            self._demo_image_url = (
+                "data:image/png;base64," + base64.b64encode(png.getvalue()).decode()
+            )
         executable = shutil.which("codex")
         if executable is None:
             raise ConfigError("Codex CLI missing; install it and run codex login")
@@ -78,6 +108,37 @@ class CodexClient:
         """Return a native AssistantMessage with the exact requested tool calls."""
         if temperature is not None:
             raise ValueError("Codex CLI does not support temperature")
+        # CLI calls are stateless. Reattach the immutable demonstration separately
+        # from the policy's rolling live observations; never consume image_horizon.
+        messages = copy.deepcopy(messages)
+        if self._demo_image_url is not None:
+            demo = {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "HISTORICAL DEMONSTRATION — NOT A LIVE OBSERVATION. "
+                            "This fixed reference storyboard is ordered left-to-right, "
+                            "then top-to-bottom, with source timestamps. Read the whole "
+                            "sequence before planning: approach, changes in viewing/grasp "
+                            "orientation, contact, transport, release and withdrawal. "
+                            "Do not mistake the final demonstrated state for current success. "
+                            "Use the later LIVE observation and measured state for actions. "
+                            "Demo timing/coordinates are not executable robot targets. "
+                            "If reproducing its geometry requires an unavailable tool or "
+                            "rotation, explain the limitation rather than substituting "
+                            "unsupported translations. Reference source SHA256: "
+                            + str(self.demo_image_sha256)
+                        ),
+                    },
+                    {"type": "image_url", "image_url": {"url": self._demo_image_url}},
+                ],
+            }
+            position = 0
+            while position < len(messages) and messages[position].get("role") == "system":
+                position += 1
+            messages.insert(position, demo)
         if self.trace_dir is not None:
             self.trace_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="inspect-codex-") as temporary:

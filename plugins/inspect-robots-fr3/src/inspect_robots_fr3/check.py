@@ -48,6 +48,7 @@ def main():
                 {
                     "ok": True,
                     "robot": rig.info.name,
+                    "action_semantics": asdict(rig.info.action_space.semantics),
                     "policy": asdict(policy.config),
                     "motion": False,
                 },
