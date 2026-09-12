@@ -1,3 +1,5 @@
+> This fork adds FR3 + Gemini RGB and a ChatGPT/Codex agent wire. [本机安装与真机运行](plugins/inspect-robots-fr3/README.md).
+
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/robocurve/inspect-robots/main/docs/assets/inspect-robots-logo.svg" alt="Inspect Robots logo — a line-art robot inspecting a dot through a magnifying lens" width="160">

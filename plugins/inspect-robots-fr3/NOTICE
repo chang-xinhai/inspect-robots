@@ -1,0 +1,6 @@
+Transport files under _transport/ are copied from chang-xinhai/Show-Harness,
+commit 957b1a707a666226a29d97922c7826d91c504ccb, core/fr3/.
+scripts/fr3/import_site.py is adapted from the same source commit.
+Original project: Show-Harness; Apache License 2.0 (LICENSE-Show-Harness).
+Local modifications: package identity, camera temporary-directory prefix, and code formatting.
+No Show-Harness runtime dependency. Both clients use the same DepthUMI RPC service.

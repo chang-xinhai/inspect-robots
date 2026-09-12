@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "inspect-robots-fr3"
+version = "0.1.0"
+description = "FR3 and Gemini RGB via the DepthUMI deployment protocol"
+requires-python = ">=3.10"
+license = "MIT AND Apache-2.0"
+license-files = ["LICENSE", "LICENSE-Show-Harness", "NOTICE"]
+dependencies = ["inspect-robots>=0.30", "scipy>=1.11", "zerorpc>=0.6.3", "opencv-python-headless>=4.8", "PyYAML>=6", "pillow>=10"]
+
+[project.entry-points."inspect_robots.embodiments"]
+fr3 = "inspect_robots_fr3:FR3Embodiment"
+
+[project.scripts]
+inspect-robots-fr3 = "inspect_robots_fr3.check:main"
+
+[tool.uv.sources]
+inspect-robots = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/inspect_robots_fr3"]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+[tool.ruff.lint.per-file-ignores]
+"src/inspect_robots_fr3/_transport/**" = ["ALL"]
+"tests/**" = ["D1"]

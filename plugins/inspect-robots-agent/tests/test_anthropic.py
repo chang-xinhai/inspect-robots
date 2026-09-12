@@ -1110,7 +1110,7 @@ def test_unknown_wire_lists_only_canonical_names() -> None:
         _policy(wire="unknown")
 
     assert str(excinfo.value) == (
-        "wire must be one of ['chat', 'gemini-live', 'interactions', 'messages', "
+        "wire must be one of ['chat', 'codex', 'gemini-live', 'interactions', 'messages', "
         "'responses'], got 'unknown'"
     )
 

@@ -56,6 +56,7 @@ from inspect_robots_agent._responses import ResponsesClient
 from inspect_robots_agent._tools import PreCheck, Toolset, build_toolset
 
 from ._capture import WireCapture
+from ._codex import CodexClient
 
 _MAX_CONSECUTIVE_FAILURES = 3
 # Shared by the camera label writer and the reader that recovers revealed
@@ -91,7 +92,7 @@ _EFFORT_LEVELS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh",
 # offers. The range is half-open by construction: 1.0 means "past max effort",
 # and servers that cap lower reject it with a guided 4xx.
 _EFFORT_FRACTION_LIMIT = 1.0
-_WIRE_FORMATS = frozenset({"chat", "responses", "messages", "gemini-live", "interactions"})
+_WIRE_FORMATS = frozenset({"chat", "responses", "messages", "gemini-live", "interactions", "codex"})
 _WIRE_ALIASES = {"anthropic": "messages"}
 _AGENT_NATIVE_WIRES = frozenset({"chat", "messages"})
 _MESSAGES_CAPABLE_PREFIXES = frozenset(
@@ -270,6 +271,7 @@ class AgentPolicyConfig(PolicyConfig):
     #: Canonical wire name; constructor input ``anthropic`` aliases ``messages``.
     wire: str = "chat"
     wire_capture: bool = True
+    codex_timeout_s: float = 120.0
     speed: str | None = None
     #: Effective per-response cap on ``wire=messages``; ``None`` on the other
     #: wires, where nothing constrained the output.
@@ -325,16 +327,17 @@ class LLMAgentPolicy(PolicyBase):
         api_key_env: str | None = None,
         wire: str | _Unset = _UNSET,
         wire_capture: bool = True,
+        codex_timeout_s: float = 120.0,
         speed: str | None = None,
         max_output_tokens: int | None = None,
         max_llm_calls: int = 100,
         temperature: float | None = None,
-        effort: str | float | None | _Unset = _UNSET,
+        effort: str | float | _Unset | None = _UNSET,
         max_speed_frac: float = 0.1,
         transcript_echo: bool = False,
         images: str = "always",
         depth: str = "render",
-        image_horizon: int | None | _Unset = _UNSET,
+        image_horizon: int | _Unset | None = _UNSET,
         prior_learnings: str | None = None,
         transport: httpx.BaseTransport | None = None,
         env: dict[str, str] | None = None,
@@ -416,9 +419,21 @@ class LLMAgentPolicy(PolicyBase):
             raise ConfigError("max_llm_calls must be >= 1")
         environ = dict(os.environ) if env is None else env
         requested_model = model or environ.get(ENV_MODEL)
+        if wire == "codex":
+            if base_url or api_key_env or transport is not None:
+                raise ConfigError("wire=codex uses ChatGPT login; omit API endpoint/key/transport")
+            if temperature is not None:
+                raise ConfigError("temperature is not supported by wire=codex; omit it")
+            if not np.isfinite(codex_timeout_s) or codex_timeout_s <= 0:
+                raise ConfigError("codex_timeout_s must be finite and positive")
+            requested_model = requested_model or "gpt-5.5"
+            if requested_model.startswith("openai/"):
+                requested_model = requested_model.removeprefix("openai/")
+            if "/" in requested_model:
+                raise ConfigError("wire=codex needs a Codex model id, e.g. gpt-5.5 or gpt-6-astra")
         direct_claim = (
             _direct_claim(requested_model, environ, native_wires=_AGENT_NATIVE_WIRES)
-            if not base_url
+            if not base_url and wire != "codex"
             else None
         )
         # Order matters from here down (plan 0026): wire is validated before
@@ -436,6 +451,8 @@ class LLMAgentPolicy(PolicyBase):
         resolved_effort: str | float | None = None
         if not isinstance(effort, _Unset):
             resolved_effort = _validated_effort("none" if effort is None else effort)
+        if wire == "codex" and resolved_effort is not None and not isinstance(resolved_effort, str):
+            raise ConfigError("wire=codex requires a named effort level")
         if wire == "gemini-live" and effort is not _UNSET:
             raise ConfigError(
                 "effort is not supported on wire='gemini-live'.\nfix: drop -P effort="
@@ -547,12 +564,16 @@ class LLMAgentPolicy(PolicyBase):
         if wire == "interactions" and base_url and not api_key_env:
             effective_key_env = "GEMINI_API_KEY"
         try:
-            provider = resolve_provider(
-                model=requested_model,
-                base_url=base_url,
-                api_key_env=effective_key_env,
-                env=environ,
-                native_wires=_AGENT_NATIVE_WIRES,
+            provider = (
+                Provider("codex://chatgpt", "", requested_model or "gpt-5.5", "codex")
+                if wire == "codex"
+                else resolve_provider(
+                    model=requested_model,
+                    base_url=base_url,
+                    api_key_env=effective_key_env,
+                    env=environ,
+                    native_wires=_AGENT_NATIVE_WIRES,
+                )
             )
         except ConfigError as exc:
             if wire not in {"gemini-live", "interactions"} or base_url:
@@ -683,9 +704,16 @@ class LLMAgentPolicy(PolicyBase):
         )
         self._capture = WireCapture() if wire_capture else None
         self._client: (
-            ChatClient | ResponsesClient | AnthropicClient | GeminiLiveClient | InteractionsClient
+            ChatClient
+            | ResponsesClient
+            | AnthropicClient
+            | GeminiLiveClient
+            | InteractionsClient
+            | CodexClient
         )
-        if wire == "messages":
+        if wire == "codex":
+            self._client = CodexClient(provider, timeout_s=codex_timeout_s, capture=self._capture)
+        elif wire == "messages":
             assert resolved_max_output_tokens is not None
             self._client = AnthropicClient(
                 provider,
@@ -723,6 +751,7 @@ class LLMAgentPolicy(PolicyBase):
             api_key_env=api_key_env,
             wire=wire,
             wire_capture=wire_capture,
+            codex_timeout_s=codex_timeout_s,
             speed=speed,
             max_output_tokens=resolved_max_output_tokens,
             max_llm_calls=max_llm_calls,
@@ -808,6 +837,8 @@ class LLMAgentPolicy(PolicyBase):
         """Begin streaming wire attempts for the next trial when enabled."""
         if self._capture is not None:
             self._capture.begin_trial(log_dir, run_id, f"{scene_id}-e{epoch}")
+        if isinstance(self._client, CodexClient):
+            self._client.set_trace_dir(Path(log_dir) / "codex" / run_id / f"{scene_id}-e{epoch}")
 
     def on_trial_end(self, record: TrialRecord, log_dir: str, run_id: str) -> None:
         """Persist wire capture, hindsight, usage, and the transcript at trial end."""

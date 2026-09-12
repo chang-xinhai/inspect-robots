@@ -515,3 +515,15 @@ inspect-robots "pick up the cube" --policy agent \
 To stay on Chat Completions and disable reasoning instead, pass
 `-P effort=none`. It sends the literal `reasoning_effort: "none"`; no nested
 quoting is required.
+
+## ChatGPT subscription through Codex (this fork)
+
+Use the same native agent with `-P wire=codex -P model=gpt-5.5` after
+`codex login` using ChatGPT. No API key is required and there is no API
+fallback. `-P codex_timeout_s=120` bounds each CLI call. `effort`, image
+history, tools, feedback, interpolation, call limits and transcripts retain
+the native agent behavior; `temperature` and API endpoint/key options are
+rejected on this wire. The CLI receives only images and a structured-output
+schema, with shell, apps, web search and delegation disabled. Exact CLI
+artifacts are stored alongside native eval logs under `codex/<run>/<trial>`.
+See [FR3 setup](../inspect-robots-fr3/README.md) for the hardware baseline.
